@@ -9,10 +9,22 @@ dotenv.config();
 export { clerkClient };
 
 // Clerk configuration with AI authentication features
-export const clerkConfig = {
-  publishableKey: process.env.CLERK_PUBLISHABLE_KEY!,
+export interface ClerkConfig {
+  publishableKey: string;
+  secretKey: string;
+  domain: string;
+  aiFeatures: {
+    botProtection: boolean;
+    rateLimiting: boolean;
+    fingerprinting: boolean;
+    firstDayFree: boolean;
+  };
+}
+
+export const clerkConfig: ClerkConfig = {
+  publishableKey: process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY || process.env.CLERK_PUBLISHABLE_KEY!,
   secretKey: process.env.CLERK_SECRET_KEY!,
-  // Your Clerk domain from the JWKS
+  // Your Clerk domain from JWKS
   domain: 'https://assuring-bear-40.clerk.accounts.dev',
   // AI-specific configuration
   aiFeatures: {
@@ -22,7 +34,7 @@ export const clerkConfig = {
     rateLimiting: true,
     // Enable fingerprinting for enhanced security
     fingerprinting: true,
-    // First day free pricing model
+    // Enable first-day-free pricing for new users
     firstDayFree: true,
   },
 };

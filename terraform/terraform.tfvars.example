@@ -1,0 +1,16 @@
+# Example Terraform Variables
+# Copy this file to terraform.tfvars and fill in your actual values
+
+# Vercel Configuration
+vercel_token = "your_vercel_api_token_here"
+
+# Neon Configuration  
+neon_api_key = "your_neon_api_key_here"
+
+# Clerk Authentication
+clerk_publishable_key = "pk_test_your_clerk_publishable_key_here"
+clerk_secret_key = "sk_test_your_clerk_secret_key_here"
+
+# AI Services
+openai_api_key = "sk-your_openai_api_key_here"
+pinecone_api_key = "your_pinecone_api_key_here"

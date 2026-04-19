@@ -5,6 +5,9 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+// Export clerk client for authentication middleware
+export { clerkClient };
+
 // Clerk configuration with AI authentication features
 export const clerkConfig = {
   publishableKey: process.env.CLERK_PUBLISHABLE_KEY!,

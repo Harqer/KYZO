@@ -1,13 +1,13 @@
 import express from 'express';
-import { FashionAIService, FashionAIRequest, FashionAIResponse } from '../services/fashionAIService';
-import { requireAuth } from '../config/clerk';
+import { FashionAIService, FashionAIRequest, FashionAIResponse } from '../ai/organisms/fashionAIService';
+import { authenticateUser, AuthenticatedRequest } from '../middleware/authMiddleware';
 import { ApiResponse } from '../types';
 
 const router = express.Router();
 const fashionAI = new FashionAIService();
 
 // Main AI search and recommendation endpoint
-router.post('/search', requireAuth, async (req: express.Request, res: express.Response) => {
+router.post('/search', authenticateUser, async (req: AuthenticatedRequest, res: express.Response) => {
   try {
     const { query, userPreferences, budget, category, style, occasion } = req.body;
 
@@ -50,7 +50,7 @@ router.post('/search', requireAuth, async (req: express.Request, res: express.Re
 });
 
 // Get personalized recommendations
-router.get('/recommendations/:userId', requireAuth, async (req: express.Request, res: express.Response) => {
+router.get('/recommendations/:userId', authenticateUser, async (req: AuthenticatedRequest, res: express.Response) => {
   try {
     const { userId } = req.params;
 
@@ -61,7 +61,12 @@ router.get('/recommendations/:userId', requireAuth, async (req: express.Request,
       } as ApiResponse);
     }
 
-    const recommendations = await fashionAI.getPersonalizedRecommendations(userId);
+    const request: FashionAIRequest = {
+      query: 'personalized recommendations',
+      userPreferences: { userId },
+    };
+    const result = await fashionAI.processFashionRequest(request);
+    const recommendations = result.recommendations || [];
 
     res.json({
       success: true,
@@ -80,7 +85,7 @@ router.get('/recommendations/:userId', requireAuth, async (req: express.Request,
 });
 
 // Generate outfit suggestions
-router.post('/outfit-suggestions', requireAuth, async (req: express.Request, res: express.Response) => {
+router.post('/outfit-suggestions', authenticateUser, async (req: AuthenticatedRequest, res: express.Response) => {
   try {
     const { userId, occasion, style, budget } = req.body;
 
@@ -91,7 +96,14 @@ router.post('/outfit-suggestions', requireAuth, async (req: express.Request, res
       } as ApiResponse);
     }
 
-    const suggestions = await fashionAI.generateOutfitSuggestions(userId, occasion, style, budget);
+    const request: FashionAIRequest = {
+      query: `outfit suggestions for ${occasion} in ${style} style`,
+      userPreferences: { userId, occasion, style },
+      budget,
+      category: 'outfit',
+    };
+    const result = await fashionAI.processFashionRequest(request);
+    const suggestions = result.recommendations || [];
 
     res.json({
       success: true,
@@ -113,7 +125,7 @@ router.post('/outfit-suggestions', requireAuth, async (req: express.Request, res
 });
 
 // Find cheaper alternatives
-router.post('/alternatives', requireAuth, async (req: express.Request, res: express.Response) => {
+router.post('/alternatives', authenticateUser, async (req: AuthenticatedRequest, res: express.Response) => {
   try {
     const { originalItem, targetPrice } = req.body;
 
@@ -124,7 +136,13 @@ router.post('/alternatives', requireAuth, async (req: express.Request, res: expr
       } as ApiResponse);
     }
 
-    const alternatives = await fashionAI.findCheaperAlternatives(originalItem, targetPrice);
+    const request: FashionAIRequest = {
+      query: `cheaper alternatives for ${originalItem.title || originalItem.name}`,
+      budget: targetPrice,
+      userPreferences: { originalItem },
+    };
+    const result = await fashionAI.processFashionRequest(request);
+    const alternatives = result.alternatives || [];
 
     res.json({
       success: true,
@@ -145,7 +163,7 @@ router.post('/alternatives', requireAuth, async (req: express.Request, res: expr
 });
 
 // Get marketing insights
-router.post('/marketing-insights', requireAuth, async (req: express.Request, res: express.Response) => {
+router.post('/marketing-insights', authenticateUser, async (req: AuthenticatedRequest, res: express.Response) => {
   try {
     const { targetAudience, productCategory } = req.body;
 
@@ -156,9 +174,15 @@ router.post('/marketing-insights', requireAuth, async (req: express.Request, res
       } as ApiResponse);
     }
 
-    const insights = await fashionAI.generateMarketingInsights(targetAudience, productCategory);
+    const request: FashionAIRequest = {
+      query: `marketing insights for ${productCategory} targeting ${targetAudience}`,
+      userPreferences: { targetAudience, productCategory },
+      category: 'marketing',
+    };
+    const result = await fashionAI.processFashionRequest(request);
+    const insights = result.marketingInsights || [];
 
-    if (insights.error) {
+    if (result.error) {
       return res.status(500).json({
         success: false,
         error: insights.error,
@@ -184,7 +208,7 @@ router.post('/marketing-insights', requireAuth, async (req: express.Request, res
 });
 
 // Monitor price changes
-router.post('/price-monitor', requireAuth, async (req: express.Request, res: express.Response) => {
+router.post('/price-monitor', authenticateUser, async (req: AuthenticatedRequest, res: express.Response) => {
   try {
     const { itemIds } = req.body;
 
@@ -195,13 +219,18 @@ router.post('/price-monitor', requireAuth, async (req: express.Request, res: exp
       } as ApiResponse);
     }
 
-    const priceUpdates = await fashionAI.monitorPriceChanges(itemIds);
+    const request: FashionAIRequest = {
+      query: 'price monitoring',
+      userPreferences: { itemIds },
+    };
+    const result = await fashionAI.processFashionRequest(request);
+    const monitoring = result.priceComparisons || [];
 
     res.json({
       success: true,
       data: {
-        priceUpdates,
-        count: priceUpdates.length,
+        priceUpdates: monitoring,
+        count: monitoring.length,
         lastChecked: new Date().toISOString(),
       },
     } as ApiResponse);
@@ -215,7 +244,7 @@ router.post('/price-monitor', requireAuth, async (req: express.Request, res: exp
 });
 
 // Get AI status and capabilities
-router.get('/status', requireAuth, async (req: express.Request, res: express.Response) => {
+router.get('/health', authenticateUser, async (req: AuthenticatedRequest, res: express.Response) => {
   try {
     res.json({
       success: true,

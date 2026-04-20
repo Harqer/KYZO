@@ -1,0 +1,349 @@
+# GitLab CI/CD Pipeline for KYZO Enterprise
+# Atomic Design Principles - Infrastructure as Code
+# Multi-environment: production, staging, development
+
+stages:
+  - security
+  - test
+  - build
+  - terraform
+  - deploy
+  - validate
+  - rollback
+
+variables:
+  NODE_VERSION: "20"
+  TF_VERSION: "1.5.0"
+  CACHE_FALLBACK_KEY: "$CI_COMMIT_REF_SLUG"
+
+# Cache configuration
+cache:
+  key: "$CI_COMMIT_REF_SLUG"
+  paths:
+    - fashion-backend/node_modules/
+    - fashion-backend/.npm/
+    - fashion-backend/terraform/.terraform/
+
+# Security Scanning Stage
+security-audit:
+  stage: security
+  image: node:$NODE_VERSION
+  script:
+    - cd fashion-backend
+    - npm ci --cache .npm --prefer-offline
+    - npm audit --audit-level=moderate
+    - npm run security:scan
+  artifacts:
+    reports:
+      sast: fashion-backend/security-report.json
+    paths:
+      - fashion-backend/security-report.json
+    expire_in: 1 week
+  only:
+    - main
+    - develop
+    - merge_requests
+
+container-scanning:
+  stage: security
+  image: docker:24.0.5
+  services:
+    - docker:24.0.5-dind
+  script:
+    - docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA ./fashion-backend
+    - docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v $PWD:/tmp aquasec/trivy:latest image --format json --output /tmp/container-scan.json $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+  artifacts:
+    reports:
+      container_scanning: container-scan.json
+    paths:
+      - container-scan.json
+    expire_in: 1 week
+  only:
+    - main
+    - develop
+
+# Testing Stage
+unit-tests:
+  stage: test
+  image: node:$NODE_VERSION
+  parallel:
+    matrix:
+      - NODE_VERSION: ["18", "20"]
+  script:
+    - cd fashion-backend
+    - npm ci --cache .npm --prefer-offline
+    - npm run test:unit -- --coverage --watchAll=false
+    - npm run test:types
+  coverage: '/Lines\s*:\s*(\d+\.\d+)%/'
+  artifacts:
+    reports:
+      junit: fashion-backend/junit.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: fashion-backend/coverage/cobertura-coverage.xml
+    paths:
+      - fashion-backend/coverage/
+    expire_in: 1 week
+  only:
+    - main
+    - develop
+    - merge_requests
+
+integration-tests:
+  stage: test
+  image: node:$NODE_VERSION
+  services:
+    - name: postgres:16
+      alias: postgres
+      variables:
+        POSTGRES_DB: test_db
+        POSTGRES_USER: test_user
+        POSTGRES_PASSWORD: test_pass
+    - name: redis:7
+      alias: redis
+  variables:
+    DATABASE_URL: "postgresql://test_user:test_pass@postgres:5432/test_db"
+    REDIS_URL: "redis://redis:6379"
+  script:
+    - cd fashion-backend
+    - npm ci --cache .npm --prefer-offline
+    - npm run test:integration
+  artifacts:
+    reports:
+      junit: fashion-backend/integration-junit.xml
+    expire_in: 1 week
+  only:
+    - main
+    - develop
+    - merge_requests
+
+# Build Stage
+build-application:
+  stage: build
+  image: node:$NODE_VERSION
+  script:
+    - cd fashion-backend
+    - npm ci --cache .npm --prefer-offline
+    - npm run build
+  artifacts:
+    paths:
+      - fashion-backend/dist/
+      - fashion-backend/.next/
+    expire_in: 1 hour
+  only:
+    - main
+    - develop
+    - merge_requests
+
+# Terraform Infrastructure Stage
+terraform-init:
+  stage: terraform
+  image: hashicorp/terraform:$TF_VERSION
+  script:
+    - cd fashion-backend/terraform
+    - terraform init -input=false
+    - terraform workspace select $CI_ENVIRONMENT_NAME || terraform workspace new $CI_ENVIRONMENT_NAME
+  artifacts:
+    paths:
+      - fashion-backend/terraform/.terraform/
+      - fashion-backend/terraform/.terraform.lock.hcl
+    expire_in: 1 week
+  only:
+    - main
+    - develop
+  environment:
+    name: $DEPLOY_ENVIRONMENT
+    url: $DEPLOY_URL
+
+terraform-plan:
+  stage: terraform
+  image: hashicorp/terraform:$TF_VERSION
+  script:
+    - cd fashion-backend/terraform
+    - terraform plan -input=false -no-color -out=tfplan
+  artifacts:
+    paths:
+      - fashion-backend/terraform/tfplan
+    expire_in: 1 hour
+  only:
+    - main
+    - develop
+  environment:
+    name: $DEPLOY_ENVIRONMENT
+
+terraform-apply:
+  stage: terraform
+  image: hashicorp/terraform:$TF_VERSION
+  script:
+    - cd fashion-backend/terraform
+    - terraform apply -input=false -auto-approve tfplan
+  dependencies:
+    - terraform-plan
+  only:
+    - main
+  when: manual
+  environment:
+    name: production
+    url: https://api.fashion-ai.com
+
+terraform-apply-staging:
+  stage: terraform
+  image: hashicorp/terraform:$TF_VERSION
+  script:
+    - cd fashion-backend/terraform
+    - terraform apply -input=false -auto-approve tfplan
+  dependencies:
+    - terraform-plan
+  only:
+    - develop
+  environment:
+    name: staging
+    url: https://api-staging.fashion-ai.com
+
+# Deployment Stage
+deploy-staging:
+  stage: deploy
+  image: node:$NODE_VERSION
+  script:
+    - cd fashion-backend
+    - npm ci --cache .npm --prefer-offline
+    - npm run build
+    - npx vercel --token $VERCEL_TOKEN --scope $VERCEL_ORG_ID --prod
+  environment:
+    name: staging
+    url: https://api-staging.fashion-ai.com
+  only:
+    - develop
+  dependencies:
+    - terraform-apply-staging
+    - build-application
+
+deploy-production:
+  stage: deploy
+  image: node:$NODE_VERSION
+  script:
+    - cd fashion-backend
+    - npm ci --cache .npm --prefer-offline
+    - npm run build
+    - npx vercel --token $VERCEL_TOKEN --scope $VERCEL_ORG_ID --prod
+  environment:
+    name: production
+    url: https://api.fashion-ai.com
+  only:
+    - main
+  when: manual
+  dependencies:
+    - terraform-apply
+    - build-application
+
+# Validation Stage
+post-deploy-tests:
+  stage: validate
+  image: node:$NODE_VERSION
+  script:
+    - cd fashion-backend
+    - npm ci --cache .npm --prefer-offline
+    - npm run test:e2e:production
+  environment:
+    name: $DEPLOY_ENVIRONMENT
+  only:
+    - main
+    - develop
+  dependencies:
+    - deploy-staging
+    - deploy-production
+
+performance-tests:
+  stage: validate
+  image: node:$NODE_VERSION
+  script:
+    - cd fashion-backend
+    - npm ci --cache .npm --prefer-offline
+    - npm run test:performance
+  artifacts:
+    reports:
+      performance: fashion-backend/performance-report.json
+    paths:
+      - fashion-backend/performance-report.json
+    expire_in: 1 week
+  environment:
+    name: $DEPLOY_ENVIRONMENT
+  only:
+    - main
+    - develop
+  dependencies:
+    - deploy-staging
+    - deploy-production
+
+# Rollback Stage
+rollback-production:
+  stage: rollback
+  image: node:$NODE_VERSION
+  script:
+    - cd fashion-backend
+    - npx vercel --token $VERCEL_TOKEN --scope $VERCEL_ORG_ID --rollback
+    - echo "Production deployment rolled back"
+  environment:
+    name: production
+    url: https://api.fashion-ai.com
+  only:
+    - main
+  when: manual
+  allow_failure: true
+
+rollback-staging:
+  stage: rollback
+  image: node:$NODE_VERSION
+  script:
+    - cd fashion-backend
+    - npx vercel --token $VERCEL_TOKEN --scope $VERCEL_ORG_ID --rollback
+    - echo "Staging deployment rolled back"
+  environment:
+    name: staging
+    url: https://api-staging.fashion-ai.com
+  only:
+    - develop
+  when: manual
+  allow_failure: true
+
+terraform-rollback:
+  stage: rollback
+  image: hashicorp/terraform:$TF_VERSION
+  script:
+    - cd fashion-backend/terraform
+    - terraform workspace select $CI_ENVIRONMENT_NAME
+    - terraform destroy -input=false -auto-approve
+  environment:
+    name: $DEPLOY_ENVIRONMENT
+  only:
+    - main
+    - develop
+  when: manual
+  allow_failure: true
+
+# Monitoring and Notifications
+deploy-notification:
+  stage: .post
+  image: alpine:latest
+  script:
+    - |
+      curl -X POST -H 'Content-type: application/json' \
+      --data '{"text":"Fashion AI deployed to '$DEPLOY_ENVIRONMENT' successfully!"}' \
+      $SLACK_WEBHOOK_URL
+  only:
+    - main
+    - develop
+  when: on_success
+
+failure-notification:
+  stage: .post
+  image: alpine:latest
+  script:
+    - |
+      curl -X POST -H 'Content-type: application/json' \
+      --data '{"text":"Fashion AI deployment to '$DEPLOY_ENVIRONMENT' failed!"}' \
+      $SLACK_WEBHOOK_URL
+  only:
+    - main
+    - develop
+  when: on_failure

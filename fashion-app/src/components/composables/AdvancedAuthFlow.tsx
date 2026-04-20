@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Alert, StyleSheet } from 'react-native';
 import { useLocalCredentials } from '@clerk/clerk-expo';
 import { useAuth, useUser, useSignIn, useSignUp } from '@clerk/clerk-expo';
-import { authenticateWithBiometrics } from '../app/_layout';
+import { authenticateWithBiometrics } from '../../app/_layout';
 import { AuthButton } from '../ui/AuthButton';
 
 interface AdvancedAuthFlowProps {

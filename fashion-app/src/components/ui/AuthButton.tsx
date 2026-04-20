@@ -15,7 +15,7 @@ interface AuthButtonProps {
   size?: 'small' | 'medium' | 'large';
   disabled?: boolean;
   loading?: boolean;
-  provider?: 'google' | 'github' | 'microsoft' | 'slack';
+  provider?: 'google' | 'github' | 'microsoft' | 'slack' | 'email';
   icon?: React.ReactNode;
   style?: ViewStyle;
   textStyle?: TextStyle;
@@ -113,8 +113,41 @@ export const AuthButton: React.FC<AuthButtonProps> = ({
       github: '#24292E',
       microsoft: '#0078D4',
       slack: '#4A154B',
+      email: '#3B82F6',
     };
     return colors[provider as keyof typeof colors] || '#3B82F6';
+  };
+
+  const getIcon = () => {
+    switch (provider) {
+      case 'google':
+        return 'logo-google';
+      case 'github':
+        return 'logo-github';
+      case 'microsoft':
+        return 'logo-microsoft';
+      case 'slack':
+        return 'logo-slack';
+      case 'email':
+      default:
+        return 'mail';
+    }
+  };
+
+  const getLabel = () => {
+    switch (provider) {
+      case 'google':
+        return 'Continue with Google';
+      case 'github':
+        return 'Continue with GitHub';
+      case 'microsoft':
+        return 'Continue with Microsoft';
+      case 'slack':
+        return 'Continue with Slack';
+      case 'email':
+      default:
+        return 'Continue with Email';
+    }
   };
 
   return (

@@ -1,25 +1,50 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { 
+  View, 
+  Text, 
+  TextInput, 
+  TouchableOpacity, 
+  StyleSheet, 
+  Alert, 
+  ScrollView,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Modal
+} from 'react-native';
 import { useSignIn, useAuth } from '@clerk/clerk-expo';
 import { useRouter } from 'expo-router';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
 import { Ionicons } from '@expo/vector-icons';
-import GoogleSignInButton from '@/components/GoogleSignInButton';
+import { SocialAuthButtons } from '@/components/SocialAuthButtons';
+import { MagicLinkAuth } from '@/components/MagicLinkAuth';
+import { MFASetup } from '@/components/MFASetup';
+
+type AuthMethod = 'password' | 'magic-link' | 'social';
 
 export default function SignInScreen() {
   const { signIn, setActive, isLoaded } = useSignIn();
   const { isSignedIn, user } = useAuth();
-  
+  const router = useRouter();
+
+  // Form state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
+  const [authMethod, setAuthMethod] = useState<AuthMethod>('password');
+  
+  // MFA state
+  const [mfaRequired, setMfaRequired] = useState(false);
+  const [mfaCode, setMfaCode] = useState('');
+  const [showMFASetup, setShowMFASetup] = useState(false);
+
+  // Biometric state
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricType, setBiometricType] = useState<string | null>(null);
   const [hasStoredCredentials, setHasStoredCredentials] = useState(false);
 
-  // Check biometric availability and stored credentials on component mount
+  // Check biometric availability
   useEffect(() => {
     checkBiometricAvailability();
     checkStoredCredentials();
@@ -30,7 +55,6 @@ export default function SignInScreen() {
       const hasCredentials = await SecureStore.getItemAsync('biometric_enabled');
       setHasStoredCredentials(hasCredentials === 'true');
     } catch (error) {
-      console.log('Error checking stored credentials:', error);
       setHasStoredCredentials(false);
     }
   };
@@ -57,6 +81,7 @@ export default function SignInScreen() {
     }
   };
 
+  // Email/Password Sign In
   const onSignInPress = async () => {
     if (!isLoaded) return;
     
@@ -70,53 +95,75 @@ export default function SignInScreen() {
       if (completeSignIn.status === 'complete') {
         await setActive({ session: completeSignIn.createdSessionId });
         
-        // Offer to store credentials for biometric login
-        if (biometricAvailable) {
+        // Offer biometric for next time
+        if (biometricAvailable && !hasStoredCredentials) {
           Alert.alert(
             'Enable Biometric Login?',
-            `Would you like to enable ${biometricType} for faster sign-in next time?`,
+            `Enable ${biometricType} for faster sign-in?`,
             [
               { text: 'No', style: 'cancel' },
-              { 
-                text: 'Yes', 
-                onPress: () => storeCredentialsForBiometric(email, password)
-              },
+              { text: 'Yes', onPress: () => storeCredentialsForBiometric(email, password) }
             ]
           );
         }
         
         router.replace('/(tabs)');
+      } else if (completeSignIn.status === 'needs_second_factor') {
+        setMfaRequired(true);
       } else {
         Alert.alert('Error', 'Sign in failed. Please try again.');
       }
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Sign in failed');
+      // Handle specific Clerk errors
+      if (err.errors?.[0]?.code === 'form_identifier_not_found') {
+        Alert.alert('Account Not Found', 'No account exists with this email. Please sign up first.');
+      } else if (err.errors?.[0]?.code === 'form_password_incorrect') {
+        Alert.alert('Incorrect Password', 'The password you entered is incorrect. Please try again.');
+      } else if (err.errors?.[0]?.code === 'session_exists') {
+        Alert.alert('Already Signed In', 'You are already signed in on this device.');
+      } else {
+        Alert.alert('Error', err.message || 'Sign in failed');
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const storeCredentialsForBiometric = async (identifier: string, password: string) => {
+  // MFA Verification
+  const verifyMFA = async () => {
+    if (!mfaCode || mfaCode.length !== 6) {
+      Alert.alert('Invalid Code', 'Please enter a valid 6-digit code');
+      return;
+    }
+
+    setLoading(true);
     try {
-      // Store credentials securely for biometric authentication
-      await SecureStore.setItemAsync('biometric_email', identifier);
-      await SecureStore.setItemAsync('biometric_password', password);
-      await SecureStore.setItemAsync('biometric_enabled', 'true');
-      
-      Alert.alert('Success', `${biometricType} login enabled!`);
-    } catch (error) {
-      Alert.alert('Error', 'Failed to enable biometric login');
+      const result = await signIn.attemptSecondFactor({
+        strategy: 'totp',
+        code: mfaCode,
+      });
+
+      if (result.status === 'complete') {
+        await setActive({ session: result.createdSessionId });
+        router.replace('/(tabs)');
+      } else {
+        Alert.alert('Verification Failed', 'Invalid code. Please try again.');
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'MFA verification failed');
+    } finally {
+      setLoading(false);
     }
   };
 
+  // Biometric Sign In
   const onBiometricSignInPress = async () => {
     if (!biometricAvailable) {
-      Alert.alert('Not Available', 'Biometric authentication is not available on this device');
+      Alert.alert('Not Available', 'Biometric authentication is not available');
       return;
     }
 
     try {
-      // First authenticate with biometrics
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: `Sign in with ${biometricType}`,
         fallbackLabel: 'Use password',
@@ -124,152 +171,298 @@ export default function SignInScreen() {
       });
 
       if (result.success) {
-        // Retrieve stored credentials
         const storedEmail = await SecureStore.getItemAsync('biometric_email');
         const storedPassword = await SecureStore.getItemAsync('biometric_password');
         
         if (storedEmail && storedPassword) {
-          setLoading(true);
-          
-          // Sign in with stored credentials
-          const completeSignIn = await signIn.create({
-            identifier: storedEmail,
-            password: storedPassword,
-          });
-
-          if (completeSignIn.status === 'complete') {
-            await setActive({ session: completeSignIn.createdSessionId });
-            router.replace('/(tabs)');
-          } else {
-            Alert.alert('Error', 'Stored credentials are no longer valid. Please sign in again.');
-            // Clear invalid credentials
-            await SecureStore.deleteItemAsync('biometric_email');
-            await SecureStore.deleteItemAsync('biometric_password');
-            await SecureStore.deleteItemAsync('biometric_enabled');
-          }
+          setEmail(storedEmail);
+          setPassword(storedPassword);
+          await onSignInPress();
         } else {
-          Alert.alert('Error', 'No stored credentials found. Please sign in with email/password first.');
+          Alert.alert('Error', 'No stored credentials found. Please sign in manually first.');
         }
-      } else {
-        Alert.alert('Failed', 'Biometric authentication failed');
       }
     } catch (error) {
-      Alert.alert('Error', 'Biometric authentication error');
-      console.error('Biometric sign in error:', error);
-    } finally {
-      setLoading(false);
+      console.error('Biometric error:', error);
     }
   };
 
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Welcome Back</Text>
-      <Text style={styles.subtitle}>Sign in to your account</Text>
-      
-      <View style={styles.form}>
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          keyboardType="email-address"
-        />
+  const storeCredentialsForBiometric = async (identifier: string, pass: string) => {
+    try {
+      await SecureStore.setItemAsync('biometric_email', identifier);
+      await SecureStore.setItemAsync('biometric_password', pass);
+      await SecureStore.setItemAsync('biometric_enabled', 'true');
+      Alert.alert('Success', `${biometricType} login enabled!`);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to enable biometric login');
+    }
+  };
+
+  // Render MFA Input
+  if (mfaRequired) {
+    return (
+      <View style={styles.container}>
+        <Ionicons name="shield-outline" size={64} color="#6366f1" style={styles.mfaIcon} />
+        <Text style={styles.title}>Two-Factor Authentication</Text>
+        <Text style={styles.subtitle}>
+          Enter the 6-digit code from your authenticator app
+        </Text>
         
         <TextInput
           style={styles.input}
-          placeholder="Password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
+          placeholder="000000"
+          value={mfaCode}
+          onChangeText={setMfaCode}
+          keyboardType="number-pad"
+          maxLength={6}
+          textAlign="center"
         />
-        
+
         <TouchableOpacity 
-          style={styles.button} 
-          onPress={onSignInPress}
-          disabled={loading || !email || !password}
+          style={[styles.button, loading && styles.buttonDisabled]} 
+          onPress={verifyMFA}
+          disabled={loading}
         >
-          <Text style={styles.buttonText}>
-            {loading ? 'Signing in...' : 'Sign In'}
-          </Text>
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>Verify</Text>
+          )}
         </TouchableOpacity>
 
-        <View style={styles.divider}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>OR</Text>
-          <View style={styles.dividerLine} />
-        </View>
-
-        <GoogleSignInButton 
-          onSuccess={() => router.replace('/(tabs)')}
-          onError={(error) => console.error('Google Sign-In error:', error)}
-        />
-
-        {biometricAvailable && hasStoredCredentials && (
-          <TouchableOpacity 
-            style={styles.biometricButton}
-            onPress={onBiometricSignInPress}
-            disabled={loading}
-          >
-            <Ionicons 
-              name={biometricType === 'Face ID' ? 'finger-print' : 'finger-print'} 
-              size={20} 
-              color="#000" 
-              style={styles.biometricIcon}
-            />
-            <Text style={styles.biometricButtonText}>
-              Sign in with {biometricType}
-            </Text>
-          </TouchableOpacity>
-        )}
-        
-        <TouchableOpacity 
-          style={styles.linkButton}
-          onPress={() => router.push('/(auth)/sign-up')}
-        >
-          <Text style={styles.linkText}>
-            Don't have an account? Sign Up
-          </Text>
+        <TouchableOpacity style={styles.linkButton} onPress={() => setMfaRequired(false)}>
+          <Text style={styles.linkText}>Use different method</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    );
+  }
+
+  return (
+    <KeyboardAvoidingView 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.container}
+    >
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <Text style={styles.title}>Welcome Back</Text>
+        <Text style={styles.subtitle}>Sign in to your account</Text>
+
+        {/* Auth Method Tabs */}
+        <View style={styles.tabContainer}>
+          <TouchableOpacity 
+            style={[styles.tab, authMethod === 'password' && styles.activeTab]}
+            onPress={() => setAuthMethod('password')}
+          >
+            <Ionicons 
+              name="key-outline" 
+              size={20} 
+              color={authMethod === 'password' ? '#6366f1' : '#6b7280'} 
+            />
+            <Text style={[styles.tabText, authMethod === 'password' && styles.activeTabText]}>
+              Password
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.tab, authMethod === 'magic-link' && styles.activeTab]}
+            onPress={() => setAuthMethod('magic-link')}
+          >
+            <Ionicons 
+              name="mail-outline" 
+              size={20} 
+              color={authMethod === 'magic-link' ? '#6366f1' : '#6b7280'} 
+            />
+            <Text style={[styles.tabText, authMethod === 'magic-link' && styles.activeTabText]}>
+              Magic Link
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.tab, authMethod === 'social' && styles.activeTab]}
+            onPress={() => setAuthMethod('social')}
+          >
+            <Ionicons 
+              name="share-social-outline" 
+              size={20} 
+              color={authMethod === 'social' ? '#6366f1' : '#6b7280'} 
+            />
+            <Text style={[styles.tabText, authMethod === 'social' && styles.activeTabText]}>
+              Social
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Auth Method Content */}
+        {authMethod === 'password' && (
+          <View style={styles.form}>
+            <TextInput
+              style={styles.input}
+              placeholder="Email"
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              autoComplete="email"
+            />
+            
+            <TextInput
+              style={styles.input}
+              placeholder="Password"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              autoComplete="password"
+            />
+
+            <TouchableOpacity 
+              style={[styles.button, loading && styles.buttonDisabled]} 
+              onPress={onSignInPress}
+              disabled={loading || !email || !password}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.buttonText}>Sign In</Text>
+              )}
+            </TouchableOpacity>
+
+            {biometricAvailable && hasStoredCredentials && (
+              <TouchableOpacity 
+                style={styles.biometricButton}
+                onPress={onBiometricSignInPress}
+              >
+                <Ionicons name="finger-print" size={24} color="#6366f1" />
+                <Text style={styles.biometricButtonText}>
+                  Sign in with {biometricType}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
+        {authMethod === 'magic-link' && (
+          <MagicLinkAuth onSuccess={() => router.replace('/(tabs)')} />
+        )}
+
+        {authMethod === 'social' && (
+          <SocialAuthButtons 
+            mode="sign-in" 
+            onSuccess={() => router.replace('/(tabs)')}
+          />
+        )}
+
+        {/* Footer */}
+        <View style={styles.footer}>
+          <TouchableOpacity onPress={() => router.push('/(auth)/sign-up')}>
+            <Text style={styles.linkText}>Don't have an account? Sign Up</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.mfaLink}
+            onPress={() => setShowMFASetup(true)}
+          >
+            <Ionicons name="shield-checkmark-outline" size={16} color="#6366f1" />
+            <Text style={styles.mfaLinkText}>Security Settings</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+
+      {/* MFA Setup Modal */}
+      <Modal
+        visible={showMFASetup}
+        animationType="slide"
+        presentationStyle="pageSheet"
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Security Settings</Text>
+            <TouchableOpacity onPress={() => setShowMFASetup(false)}>
+              <Ionicons name="close" size={28} color="#1f2937" />
+            </TouchableOpacity>
+          </View>
+          <MFASetup 
+            onComplete={() => setShowMFASetup(false)}
+            onCancel={() => setShowMFASetup(false)}
+          />
+        </View>
+      </Modal>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    padding: 20,
     backgroundColor: '#fff',
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    padding: 24,
   },
   title: {
     fontSize: 32,
     fontWeight: 'bold',
-    marginBottom: 8,
+    color: '#1f2937',
     textAlign: 'center',
+    marginBottom: 8,
   },
   subtitle: {
     fontSize: 16,
-    color: '#666',
-    marginBottom: 32,
+    color: '#6b7280',
     textAlign: 'center',
+    marginBottom: 32,
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    marginBottom: 24,
+    borderRadius: 12,
+    backgroundColor: '#f3f4f6',
+    padding: 4,
+  },
+  tab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    gap: 8,
+    borderRadius: 8,
+  },
+  activeTab: {
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#6b7280',
+  },
+  activeTabText: {
+    color: '#6366f1',
   },
   form: {
     gap: 16,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
+    borderColor: '#e5e7eb',
+    borderRadius: 12,
     padding: 16,
     fontSize: 16,
+    backgroundColor: '#f9fafb',
   },
   button: {
-    backgroundColor: '#000',
+    backgroundColor: '#6366f1',
     padding: 16,
-    borderRadius: 8,
+    borderRadius: 12,
     alignItems: 'center',
+  },
+  buttonDisabled: {
+    opacity: 0.5,
   },
   buttonText: {
     color: '#fff',
@@ -280,41 +473,59 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#ede9fe',
     padding: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ddd',
-  },
-  biometricIcon: {
-    marginRight: 8,
+    borderRadius: 12,
+    gap: 8,
   },
   biometricButtonText: {
-    color: '#000',
+    color: '#6366f1',
     fontSize: 16,
     fontWeight: '500',
   },
-  divider: {
-    flexDirection: 'row',
+  mfaIcon: {
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  footer: {
+    marginTop: 32,
+    gap: 16,
     alignItems: 'center',
-    marginVertical: 20,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#ddd',
-  },
-  dividerText: {
-    paddingHorizontal: 16,
-    color: '#666',
-    fontSize: 14,
   },
   linkButton: {
-    padding: 16,
-    alignItems: 'center',
+    padding: 8,
   },
   linkText: {
-    color: '#007AFF',
-    fontSize: 16,
+    color: '#6366f1',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  mfaLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 8,
+  },
+  mfaLinkText: {
+    color: '#6366f1',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1f2937',
   },
 });

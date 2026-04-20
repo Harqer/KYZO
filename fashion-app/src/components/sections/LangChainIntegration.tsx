@@ -9,9 +9,9 @@ import { View, StyleSheet, Alert, Text, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import * as SecureStore from 'expo-secure-store';
-import AuthFlow from '../molecules/AuthFlow';
-import AgentList from '../molecules/AgentList';
-import { useApiManager } from '../molecules/ApiManager';
+import AuthFlow from '../composables/AuthFlow';
+import AgentList from '../composables/AgentList';
+import { useApiManager } from '../composables/ApiManager';
 
 // Define Agent interface locally since it's not exported
 interface Agent {

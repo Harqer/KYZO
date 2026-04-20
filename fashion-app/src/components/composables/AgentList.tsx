@@ -8,8 +8,8 @@ import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, RefreshControl, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { AgentCard } from '../atoms/AgentCard';
-import { AuthButton } from '../atoms/AuthButton';
+import { AgentCard } from '../ui/AgentCard';
+import { AuthButton } from '../ui/AuthButton';
 import { useApiManager } from './ApiManager';
 
 interface Agent {

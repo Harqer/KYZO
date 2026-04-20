@@ -8,7 +8,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { AuthButton } from '../atoms/AuthButton';
+import { AuthButton } from '../ui/AuthButton';
 
 interface AuthFlowProps {
   onAuthSuccess?: (provider: string, token: string) => void;

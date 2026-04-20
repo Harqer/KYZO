@@ -1,9 +1,8 @@
-import React from 'react';
-import { View, TouchableOpacity, Text, StyleSheet, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { useSignIn, useSignUp } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
-import * as AuthSession from 'expo-auth-session';
 
 interface SocialAuthButtonsProps {
   mode: 'sign-in' | 'sign-up';
@@ -21,10 +20,17 @@ const providers = [
 ];
 
 export function SocialAuthButtons({ mode, onSuccess, onError }: SocialAuthButtonsProps) {
-  const { signIn, setActive: setSignInActive } = useSignIn();
-  const { signUp, setActive: setSignUpActive } = useSignUp();
+  const { signIn, isLoaded: isSignInLoaded } = useSignIn();
+  const { signUp, isLoaded: isSignUpLoaded } = useSignUp();
+  const [loading, setLoading] = useState<string | null>(null);
 
   const handleSocialAuth = async (provider: string) => {
+    if (!isSignInLoaded || !isSignUpLoaded) {
+      Alert.alert('Error', 'Authentication not ready');
+      return;
+    }
+
+    setLoading(provider);
     try {
       const authInstance = mode === 'sign-in' ? signIn : signUp;
       
@@ -32,29 +38,32 @@ export function SocialAuthButtons({ mode, onSuccess, onError }: SocialAuthButton
         throw new Error('Auth not initialized');
       }
 
-      // Start OAuth flow
-      const result = await authInstance.authenticateWithRedirect({
-        strategy: `oauth_${provider}`,
-        redirectUrl: AuthSession.makeRedirectUri({
-          native: 'kyzo://oauth-callback',
-          web: typeof window !== 'undefined' ? window.location.origin : undefined,
-        }),
+      // Start OAuth flow - opens browser and redirects back
+      await authInstance.authenticateWithRedirect({
+        strategy: `oauth_${provider}` as any,
+        redirectUrl: 'kyzo://oauth-callback',
+        redirectUrlComplete: 'kyzo://oauth-callback',
       });
-
-      if (result.status === 'complete') {
-        const setActive = mode === 'sign-in' ? setSignInActive : setSignUpActive;
-        await setActive({ session: result.createdSessionId });
-        onSuccess?.();
-      } else if (result.status === 'missing_requirements') {
-        // Handle cases where additional info is needed
-        Alert.alert(
-          'Additional Information Required',
-          'Please complete your profile to continue.',
-          [{ text: 'OK' }]
-        );
-      }
+      
+      // OAuth flow completed successfully
+      onSuccess?.();
     } catch (error: any) {
       console.error(`${provider} auth error:`, error);
+      
+      // Try sign up if sign in fails (user doesn't exist)
+      if (mode === 'sign-in' && error.errors?.[0]?.code === 'form_identifier_not_found') {
+        try {
+          await signUp.authenticateWithRedirect({
+            strategy: `oauth_${provider}` as any,
+            redirectUrl: 'kyzo://oauth-callback',
+            redirectUrlComplete: 'kyzo://oauth-callback',
+          });
+          onSuccess?.();
+          return;
+        } catch (signUpError: any) {
+          error = signUpError;
+        }
+      }
       
       // Graceful error handling
       if (error.errors?.[0]?.code === 'oauth_access_denied') {
@@ -62,17 +71,20 @@ export function SocialAuthButtons({ mode, onSuccess, onError }: SocialAuthButton
       } else if (error.errors?.[0]?.code === 'strategy_for_user_invalid') {
         Alert.alert(
           'Account Already Exists',
-          'This email is already associated with another account. Please sign in instead.',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Sign In', onPress: () => onSuccess?.() }
-          ]
+          `This ${provider} account is linked to an existing account with a different sign-in method. Please use your email/password.`
+        );
+      } else if (error.errors?.[0]?.code === 'oauth_error') {
+        Alert.alert(
+          'OAuth Error',
+          `There was a problem with ${provider} authentication. Please ensure it's enabled in your Clerk Dashboard.`
         );
       } else {
         Alert.alert('Authentication Error', error.message || `Failed to authenticate with ${provider}`);
       }
       
       onError?.(error);
+    } finally {
+      setLoading(null);
     }
   };
 
@@ -90,13 +102,21 @@ export function SocialAuthButtons({ mode, onSuccess, onError }: SocialAuthButton
             key={provider.id}
             style={[
               styles.socialButton,
-              { backgroundColor: provider.color }
+              { backgroundColor: provider.color },
+              loading === provider.id && styles.socialButtonLoading
             ]}
             onPress={() => handleSocialAuth(provider.id)}
             accessibilityLabel={`Sign ${mode === 'sign-in' ? 'in' : 'up'} with ${provider.name}`}
+            disabled={loading !== null}
           >
-            <Ionicons name={provider.icon as any} size={20} color="#fff" />
-            <Text style={styles.socialButtonText}>{provider.name}</Text>
+            {loading === provider.id ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <>
+                <Ionicons name={provider.icon as any} size={20} color="#fff" />
+                <Text style={styles.socialButtonText}>{provider.name}</Text>
+              </>
+            )}
           </TouchableOpacity>
         ))}
       </View>
@@ -145,5 +165,8 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
+  },
+  socialButtonLoading: {
+    opacity: 0.7,
   },
 });

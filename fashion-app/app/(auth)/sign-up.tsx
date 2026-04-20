@@ -14,7 +14,7 @@ import {
 import { useSignUp } from '@clerk/clerk-expo';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { SocialAuthButtons } from '@/components/SocialAuthButtons';
+import { SocialAuthButtons } from '@/src/components/composables/SocialAuthButtons';
 
 type SignUpStep = 'email' | 'verification' | 'password' | 'complete';
 
@@ -271,15 +271,12 @@ export default function SignUpScreen() {
             </Text>
 
             <TextInput
-              style={styles.input}
+              style={[styles.input, styles.verificationInput]}
               placeholder="000000"
               value={verificationCode}
               onChangeText={setVerificationCode}
               keyboardType="number-pad"
               maxLength={6}
-              textAlign="center"
-              fontSize={24}
-              letterSpacing={8}
             />
 
             <TouchableOpacity 
@@ -511,5 +508,10 @@ const styles = StyleSheet.create({
   strengthText: {
     fontSize: 12,
     fontWeight: '500',
+  },
+  verificationInput: {
+    textAlign: 'center',
+    fontSize: 24,
+    letterSpacing: 8,
   },
 });

@@ -17,9 +17,9 @@ import { useRouter } from 'expo-router';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
 import { Ionicons } from '@expo/vector-icons';
-import { SocialAuthButtons } from '@/components/SocialAuthButtons';
-import { MagicLinkAuth } from '@/components/MagicLinkAuth';
-import { MFASetup } from '@/components/MFASetup';
+import { SocialAuthButtons } from '@/src/components/composables/SocialAuthButtons';
+import { MagicLinkAuth } from '@/src/components/composables/MagicLinkAuth';
+import { MFASetup } from '@/src/components/composables/MFASetup';
 
 type AuthMethod = 'password' | 'magic-link' | 'social';
 

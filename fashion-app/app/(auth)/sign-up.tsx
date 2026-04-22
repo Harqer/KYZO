@@ -11,15 +11,17 @@ import {
   KeyboardAvoidingView,
   Platform
 } from 'react-native';
-import { useSignUp } from '@clerk/clerk-expo';
+import { useSignUp, useClerk, useAuth } from '@clerk/expo';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { SocialAuthButtons } from '@/src/components/composables/SocialAuthButtons';
+import { SocialAuthButtons } from '@/src/components/composites/SocialAuthButtons';
 
 type SignUpStep = 'email' | 'verification' | 'password' | 'complete';
 
 export default function SignUpScreen() {
-  const { signUp, setActive, isLoaded } = useSignUp();
+  const { signUp } = useSignUp();
+  const { setActive } = useClerk();
+  const { isLoaded } = useAuth();
   const router = useRouter();
 
   const [step, setStep] = useState<SignUpStep>('email');
@@ -70,7 +72,7 @@ export default function SignUpScreen() {
       });
 
       // Send verification email
-      await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
+      await (signUp as any).prepareEmailAddressVerification();
       setStep('verification');
     } catch (err: any) {
       if (err.errors?.[0]?.code === 'form_identifier_exists') {
@@ -99,7 +101,7 @@ export default function SignUpScreen() {
 
     setLoading(true);
     try {
-      const result = await signUp.attemptEmailAddressVerification({
+      const result = await (signUp as any).attemptVerification({
         code: verificationCode,
       });
 
@@ -143,14 +145,12 @@ export default function SignUpScreen() {
 
     setLoading(true);
     try {
-      // Update password
-      await signUp.update({ password });
+      // Update password - this completes the signup if all requirements are met
+      await signUp.update({ password } as any);
 
-      // Complete signup
-      const result = await signUp.completeSignUp();
-
-      if (result.status === 'complete') {
-        await setActive({ session: result.createdSessionId });
+      // Check if signup is complete
+      if (signUp.status === 'complete') {
+        await setActive({ session: signUp.createdSessionId! });
         
         // Show welcome message with security tip
         Alert.alert(
@@ -177,7 +177,7 @@ export default function SignUpScreen() {
   const resendCode = async () => {
     setLoading(true);
     try {
-      await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
+      await (signUp as any).prepareEmailAddressVerification();
       Alert.alert('Code Sent', 'A new verification code has been sent to your email');
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Failed to resend code');

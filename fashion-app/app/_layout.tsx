@@ -2,9 +2,10 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
-import { ClerkProvider, ClerkLoaded, SignedIn, SignedOut } from '@clerk/clerk-expo';
+import { ClerkProvider, ClerkLoaded } from '@clerk/expo';
+import { useAuth } from '@clerk/expo';
 import * as SecureStore from 'expo-secure-store';
-import * as LocalAuthentication from 'expo-local-authentication';
+import { authenticateWithBiometrics } from '../src/utils/biometrics';
 
 // Advanced token cache with biometric support
 const tokenCache = {
@@ -33,32 +34,30 @@ const tokenCache = {
   }
 };
 
-// Biometric authentication helper
-export const authenticateWithBiometrics = async () => {
-  try {
-    const compatible = await LocalAuthentication.hasHardwareAsync();
-    if (!compatible) {
-      return { success: false, error: 'Device does not support biometric authentication' };
-    }
-
-    const enrolled = await LocalAuthentication.isEnrolledAsync();
-    if (!enrolled) {
-      return { success: false, error: 'No biometrics enrolled on this device' };
-    }
-
-    const result = await LocalAuthentication.authenticateAsync({
-      promptMessage: 'Authenticate to continue',
-      fallbackLabel: 'Use passcode',
-      cancelLabel: 'Cancel',
-    });
-
-    return { success: result.success, error: result.success ? null : 'Authentication failed' };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-};
-
 import { useColorScheme } from '@/hooks/use-color-scheme';
+
+function AuthenticatedLayout() {
+  const { isSignedIn, isLoaded } = useAuth();
+
+  if (!isLoaded) {
+    return null;
+  }
+
+  if (isSignedIn) {
+    return (
+      <Stack>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+      </Stack>
+    );
+  }
+
+  return (
+    <Stack>
+      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+    </Stack>
+  );
+}
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -69,22 +68,12 @@ export default function RootLayout() {
 
   return (
     <ClerkProvider 
-      publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY}
+      publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!}
       tokenCache={tokenCache}
     >
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <ClerkLoaded>
-          <SignedIn>
-            <Stack>
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-            </Stack>
-          </SignedIn>
-          <SignedOut>
-            <Stack>
-              <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-            </Stack>
-          </SignedOut>
+          <AuthenticatedLayout />
           <StatusBar style="auto" />
         </ClerkLoaded>
       </ThemeProvider>

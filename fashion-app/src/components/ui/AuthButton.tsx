@@ -1,186 +1,178 @@
-/**
- * AuthButton - Atomic Component
- * Basic authentication button that can't be broken down further
- * Handles different authentication states and providers
- */
-
 import React from 'react';
-import { Pressable, Text, StyleSheet, ViewStyle, TextStyle, ActivityIndicator, View } from 'react-native';
-import * as Haptics from 'expo-haptics';
+import { TouchableOpacity, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { getResponsiveSpacing } from '../../constants/responsive';
 
 interface AuthButtonProps {
   title: string;
-  onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'outline';
-  size?: 'small' | 'medium' | 'large';
-  disabled?: boolean;
+  onPress?: () => void;
   loading?: boolean;
-  provider?: 'google' | 'github' | 'microsoft' | 'slack' | 'email';
-  icon?: React.ReactNode;
-  style?: ViewStyle;
-  textStyle?: TextStyle;
+  disabled?: boolean;
+  variant?: 'primary' | 'secondary' | 'outline';
+  size?: 'sm' | 'md' | 'lg';
+  style?: any;
 }
 
-export const AuthButton: React.FC<AuthButtonProps> = ({
+export function AuthButton({
   title,
   onPress,
-  variant = 'primary',
-  size = 'medium',
-  disabled = false,
   loading = false,
-  provider,
-  icon,
-  style,
-  textStyle,
-}) => {
-
-  const handlePress = async () => {
-    if (disabled || loading) return;
+  disabled = false,
+  variant = 'primary',
+  size = 'md',
+  style
+}: AuthButtonProps) {
+  
+  const getButtonStyle = () => {
+    const baseStyle: any = [styles.button];
     
-    // Haptic feedback
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    switch (variant) {
+      case 'primary':
+        baseStyle.push(styles.primaryButton);
+        break;
+      case 'secondary':
+        baseStyle.push(styles.secondaryButton);
+        break;
+      case 'outline':
+        baseStyle.push(styles.outlineButton);
+        break;
+    }
     
-    onPress();
-  };
-
-  const getButtonStyles = (): ViewStyle => {
-    const baseStyles: ViewStyle = {
-      borderRadius: 12,
-      alignItems: 'center',
-      justifyContent: 'center',
-      flexDirection: 'row',
-      ...style,
-    };
-
-    const sizeStyles: ViewStyle = {
-      small: { paddingHorizontal: 16, paddingVertical: 8, minHeight: 36 },
-      medium: { paddingHorizontal: 24, paddingVertical: 12, minHeight: 44 },
-      large: { paddingHorizontal: 32, paddingVertical: 16, minHeight: 52 },
-    }[size];
-
-    const variantStyles: ViewStyle = {
-      primary: {
-        backgroundColor: '#3B82F6',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 3,
-      },
-      secondary: {
-        backgroundColor: '#F3F4F6',
-        borderWidth: 1,
-        borderColor: '#D1D5DB',
-      },
-      outline: {
-        backgroundColor: 'transparent',
-        borderWidth: 2,
-        borderColor: '#3B82F6',
-      },
-    }[variant];
-
-    const providerStyles: ViewStyle = provider ? {
-      backgroundColor: getProviderColor(provider),
-    } : {};
-
-    return { ...baseStyles, ...sizeStyles, ...variantStyles, ...providerStyles };
-  };
-
-  const getTextStyles = (): TextStyle => {
-    const baseStyles: TextStyle = {
-      fontWeight: '600',
-      ...textStyle,
-    };
-
-    const sizeStyles: TextStyle = {
-      small: { fontSize: 14 },
-      medium: { fontSize: 16 },
-      large: { fontSize: 18 },
-    }[size];
-
-    const variantStyles: TextStyle = {
-      primary: { color: '#FFFFFF' },
-      secondary: { color: '#111827' },
-      outline: { color: '#3B82F6' },
-    }[variant];
-
-    return { ...baseStyles, ...sizeStyles, ...variantStyles };
-  };
-
-  const getProviderColor = (provider: string): string => {
-    const colors = {
-      google: '#4285F4',
-      github: '#24292E',
-      microsoft: '#0078D4',
-      slack: '#4A154B',
-      email: '#3B82F6',
-    };
-    return colors[provider as keyof typeof colors] || '#3B82F6';
-  };
-
-  const getIcon = () => {
-    switch (provider) {
-      case 'google':
-        return 'logo-google';
-      case 'github':
-        return 'logo-github';
-      case 'microsoft':
-        return 'logo-microsoft';
-      case 'slack':
-        return 'logo-slack';
-      case 'email':
+    switch (size) {
+      case 'sm':
+        baseStyle.push(styles.smallButton);
+        break;
+      case 'lg':
+        baseStyle.push(styles.largeButton);
+        break;
       default:
-        return 'mail';
+        baseStyle.push(styles.mediumButton);
     }
+    
+    if (disabled || loading) {
+      baseStyle.push(styles.disabledButton);
+    }
+    
+    return baseStyle;
   };
 
-  const getLabel = () => {
-    switch (provider) {
-      case 'google':
-        return 'Continue with Google';
-      case 'github':
-        return 'Continue with GitHub';
-      case 'microsoft':
-        return 'Continue with Microsoft';
-      case 'slack':
-        return 'Continue with Slack';
-      case 'email':
-      default:
-        return 'Continue with Email';
+  const getTextStyle = () => {
+    const baseStyle: any = [styles.text];
+    
+    switch (variant) {
+      case 'primary':
+        baseStyle.push(styles.primaryText);
+        break;
+      case 'secondary':
+        baseStyle.push(styles.secondaryText);
+        break;
+      case 'outline':
+        baseStyle.push(styles.outlineText);
+        break;
     }
+    
+    switch (size) {
+      case 'sm':
+        baseStyle.push(styles.smallText);
+        break;
+      case 'lg':
+        baseStyle.push(styles.largeText);
+        break;
+      default:
+        baseStyle.push(styles.mediumText);
+    }
+    
+    return baseStyle;
   };
 
   return (
-    <Pressable
-      style={({ pressed }) => [
-        getButtonStyles(),
-        {
-          opacity: (pressed || disabled || loading) ? 0.7 : 1,
-          transform: [{ scale: pressed ? 0.98 : 1 }],
-        },
-      ]}
-      onPress={handlePress}
+    <TouchableOpacity
+      style={[getButtonStyle(), style]}
+      onPress={onPress}
       disabled={disabled || loading}
+      activeOpacity={0.8}
     >
       {loading ? (
-        <ActivityIndicator 
-          size="small" 
-          color={variant === 'primary' ? '#FFFFFF' : '#3B82F6'} 
-        />
+        <ActivityIndicator size="small" color="#FFFFFF" />
       ) : (
-        <>
-          {icon && <View style={{ marginRight: 8 }}>{icon}</View>}
-          <Text style={getTextStyles()}>{title}</Text>
-        </>
+        <Text style={getTextStyle()}>{title}</Text>
       )}
-    </Pressable>
+    </TouchableOpacity>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  container: {
-    minWidth: 120,
+  button: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+  },
+  
+  // Variants
+  primaryButton: {
+    backgroundColor: '#6366F1',
+  },
+  
+  secondaryButton: {
+    backgroundColor: '#1F2937',
+  },
+  
+  outlineButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#6366F1',
+  },
+  
+  // Sizes
+  smallButton: {
+    paddingHorizontal: getResponsiveSpacing('md'),
+    paddingVertical: getResponsiveSpacing('xs'),
+    minHeight: 36,
+  },
+  
+  mediumButton: {
+    paddingHorizontal: getResponsiveSpacing('lg'),
+    paddingVertical: getResponsiveSpacing('sm'),
+    minHeight: 44,
+  },
+  
+  largeButton: {
+    paddingHorizontal: getResponsiveSpacing('xl'),
+    paddingVertical: getResponsiveSpacing('md'),
+    minHeight: 52,
+  },
+  
+  // States
+  disabledButton: {
+    opacity: 0.5,
+  },
+  
+  // Text styles
+  text: {
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  
+  primaryText: {
+    color: '#FFFFFF',
+  },
+  
+  secondaryText: {
+    color: '#FFFFFF',
+  },
+  
+  outlineText: {
+    color: '#6366F1',
+  },
+  
+  smallText: {
+    fontSize: 14,
+  },
+  
+  mediumText: {
+    fontSize: 16,
+  },
+  
+  largeText: {
+    fontSize: 18,
   },
 });
-
-export default AuthButton;

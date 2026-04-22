@@ -1,5 +1,5 @@
 import React from 'react';
-import { ClerkProvider as ExpoClerkProvider, ClerkLoaded, SignedIn, SignedOut } from '@clerk/clerk-expo';
+import { ClerkProvider as ExpoClerkProvider, ClerkLoaded, SignedIn, SignedOut } from '@clerk/expo';
 import { tokenCache } from '@clerk/expo-token-cache';
 
 // Clerk configuration

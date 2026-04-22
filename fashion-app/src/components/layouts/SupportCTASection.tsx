@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Mail, MessageCircle } from 'lucide-react-native';
-import { Button } from '../elements/Button';
-import { Heading } from '../elements/Heading';
+import { Button } from '@/src/components/base/Button';
+import { Heading } from '@/src/components/base/Heading';
 
 export function SupportCTASection() {
   return (

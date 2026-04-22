@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Heading } from '../elements/Heading';
+import { Heading } from '../base/Heading';
 
 interface Step {
   number: number;

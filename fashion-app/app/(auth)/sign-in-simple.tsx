@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
-import { useSignIn, useAuth } from '@clerk/clerk-expo';
+import { useSignIn, useAuth, useClerk } from '@clerk/expo';
 import { useRouter } from 'expo-router';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
 import { Ionicons } from '@expo/vector-icons';
-import GoogleSignInButton from '@/components/GoogleSignInButton';
+import GoogleSignInButton from '@/src/components/composites/GoogleSignInButton';
 
 export default function SignInScreen() {
-  const { signIn, setActive, isLoaded } = useSignIn();
-  const { isSignedIn, user } = useAuth();
+  const { signIn } = useSignIn();
+  const { setActive } = useClerk();
+  const { isSignedIn, isLoaded } = useAuth();
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -62,13 +63,13 @@ export default function SignInScreen() {
     
     setLoading(true);
     try {
-      const completeSignIn = await signIn.create({
+      const result = await (signIn as any).create({
         identifier: email,
         password,
       });
 
-      if (completeSignIn.status === 'complete') {
-        await setActive({ session: completeSignIn.createdSessionId });
+      if (result.status === 'complete') {
+        await setActive({ session: result.createdSessionId });
         
         // Offer to store credentials for biometric login
         if (biometricAvailable) {
@@ -132,7 +133,7 @@ export default function SignInScreen() {
           setLoading(true);
           
           // Sign in with stored credentials
-          const completeSignIn = await signIn.create({
+          const completeSignIn = await (signIn as any).create({
             identifier: storedEmail,
             password: storedPassword,
           });

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
 import { Mail, MessageCircle, FileText, Shield } from 'lucide-react-native';
-import { SupportCard } from '../features/SupportCard';
+import { SupportCard } from '../composites/SupportCard';
 
 interface SupportOption {
   icon: React.ReactNode;

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { FaqItem } from '../features/FaqItem';
-import { Heading } from '../elements/Heading';
+import { FaqItem } from '../composites/FaqItem';
+import { Heading } from '../base/Heading';
 
 interface Faq {
   question: string;

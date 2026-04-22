@@ -30,6 +30,18 @@ variable "openai_api_key" {
   sensitive   = true
 }
 
+variable "upstash_email" {
+  description = "Upstash account email"
+  type        = string
+  sensitive   = true
+}
+
+variable "upstash_api_key" {
+  description = "Upstash API key"
+  type        = string
+  sensitive   = true
+}
+
 variable "pinecone_api_key" {
   description = "Pinecone API key for vector search"
   type        = string

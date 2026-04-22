@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
 import { Send } from 'lucide-react-native';
-import { Card } from '../elements/Card';
-import { Button } from '../elements/Button';
-import { FormField } from '../features/FormField';
+import { Card } from '../base/Card';
+import { Button } from '../base/Button';
+import { FormField } from '../composites/FormField';
 
 export function ContactForm() {
   const [formData, setFormData] = useState({

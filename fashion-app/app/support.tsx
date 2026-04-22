@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, View, ScrollView } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { Heading } from '../src/components/elements/Heading';
+import { Heading } from '../src/components/base/Heading';
 import { Header } from '../src/components/layouts/Header';
 import { Footer } from '../src/components/layouts/Footer';
 import { SupportOptions } from '../src/components/layouts/SupportOptions';

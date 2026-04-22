@@ -1,11 +1,12 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { Platform } from 'react-native';
+import { Platform, View } from 'react-native';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { ScreenDimensions, SPACING } from '@/src/constants/responsive';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -27,6 +28,8 @@ export default function TabLayout() {
           shadowRadius: 4,
           height: Platform.OS === 'ios' ? 88 : 64,
           paddingBottom: Platform.OS === 'ios' ? 20 : 0,
+          // Responsive adjustments
+          paddingHorizontal: ScreenDimensions.isMobile() ? SPACING.sm : SPACING.lg,
         },
       }}>
       <Tabs.Screen
@@ -52,6 +55,34 @@ export default function TabLayout() {
               name="tshirt.fill" 
               color={color} 
             />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="add"
+        options={{
+          title: '',
+          tabBarIcon: ({ color, focused }) => (
+            <View style={{
+              backgroundColor: colorScheme === 'dark' ? '#ffffff' : '#000000',
+              borderRadius: 30,
+              width: ScreenDimensions.isMobile() ? 56 : 64,
+              height: ScreenDimensions.isMobile() ? 56 : 64,
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginTop: ScreenDimensions.isMobile() ? -16 : -20,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.2,
+              shadowRadius: 8,
+              elevation: 8,
+            }}>
+              <IconSymbol 
+                size={ScreenDimensions.isMobile() ? 28 : 32} 
+                name="plus" 
+                color={colorScheme === 'dark' ? '#000000' : '#ffffff'} 
+              />
+            </View>
           ),
         }}
       />

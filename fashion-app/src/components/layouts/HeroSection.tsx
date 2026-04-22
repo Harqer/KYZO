@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { ArrowRight } from 'lucide-react-native';
-import { Button } from '../elements/Button';
+import { Button } from '../base/Button';
 
 export function HeroSection() {
   return (

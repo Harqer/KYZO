@@ -12,20 +12,21 @@ import {
   Platform,
   Modal
 } from 'react-native';
-import { useSignIn, useAuth } from '@clerk/clerk-expo';
+import { useSignIn, useAuth, useClerk } from '@clerk/expo';
 import { useRouter } from 'expo-router';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
 import { Ionicons } from '@expo/vector-icons';
-import { SocialAuthButtons } from '@/src/components/composables/SocialAuthButtons';
-import { MagicLinkAuth } from '@/src/components/composables/MagicLinkAuth';
-import { MFASetup } from '@/src/components/composables/MFASetup';
+import { SocialAuthButtons } from '@/src/components/composites/SocialAuthButtons';
+import { MagicLinkAuth } from '@/src/components/composites/MagicLinkAuth';
+import { MFASetup } from '@/src/components/composites/MFASetup';
 
 type AuthMethod = 'password' | 'magic-link' | 'social';
 
 export default function SignInScreen() {
-  const { signIn, setActive, isLoaded } = useSignIn();
-  const { isSignedIn, user } = useAuth();
+  const { signIn } = useSignIn();
+  const { setActive } = useClerk();
+  const { isSignedIn, isLoaded } = useAuth();
   const router = useRouter();
 
   // Form state
@@ -87,7 +88,7 @@ export default function SignInScreen() {
     
     setLoading(true);
     try {
-      const completeSignIn = await signIn.create({
+      const completeSignIn = await (signIn as any).create({
         identifier: email,
         password,
       });
@@ -138,7 +139,7 @@ export default function SignInScreen() {
 
     setLoading(true);
     try {
-      const result = await signIn.attemptSecondFactor({
+      const result = await (signIn as any).attemptSecondFactorVerification({
         strategy: 'totp',
         code: mfaCode,
       });
@@ -430,10 +431,7 @@ const styles = StyleSheet.create({
   },
   activeTab: {
     backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    boxShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
     elevation: 2,
   },
   tabText: {

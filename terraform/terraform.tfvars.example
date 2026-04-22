@@ -14,3 +14,7 @@ clerk_secret_key = "sk_test_your_clerk_secret_key_here"
 # AI Services
 openai_api_key = "sk-your_openai_api_key_here"
 pinecone_api_key = "your_pinecone_api_key_here"
+
+# Upstash Redis
+upstash_email = "your_upstash_email_here"
+upstash_api_key = "your_upstash_api_key_here"

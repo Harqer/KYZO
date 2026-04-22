@@ -121,7 +121,7 @@ class ApiService {
   /**
    * Make authenticated API request
    */
-  private async makeRequest<T>(
+  public async makeRequest<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<ApiResponse<T>> {

@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { useUser, useClerk } from '@clerk/clerk-expo';
+import { useUser, useClerk } from '@clerk/expo';
 import { useRouter } from 'expo-router';
 
 export default function ProfileScreen() {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Heading } from '../elements/Heading';
+import { Heading } from '../base/Heading';
 
 export function DownloadSection() {
   return (

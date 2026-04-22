@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert, ScrollView } from 'react-native';
-import { useOrganization, useUser, useOrganizationList } from '@clerk/clerk-expo';
+import { useOrganization, useUser, useOrganizationList } from '@clerk/expo';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function OrganizationManager() {

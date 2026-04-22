@@ -7,8 +7,8 @@
 import React, { useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import ApiManagerProvider from '../src/components/molecules/ApiManager';
-import LangChainIntegration from '../src/components/organisms/LangChainIntegration';
+import ApiManagerProvider from '../src/components/composites/ApiManager';  
+import LangChainIntegration from '../src/components/composites/LangChainIntegration';
 
 export default function IndexPage() {
   useEffect(() => {

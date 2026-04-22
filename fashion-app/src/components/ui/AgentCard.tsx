@@ -1,11 +1,7 @@
-/**
- * AgentCard - Atomic Component
- * Basic card component for displaying LangChain agent information
- * Can't be broken down further - fundamental UI building block
- */
-
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { GlassCard } from '../atoms/GlassCard';
+import { getResponsiveSpacing } from '../../constants/responsive';
 
 interface AgentCardProps {
   id: string;
@@ -19,7 +15,7 @@ interface AgentCardProps {
   style?: any;
 }
 
-export const AgentCard: React.FC<AgentCardProps> = ({
+export function AgentCard({
   id,
   name,
   description,
@@ -28,177 +24,115 @@ export const AgentCard: React.FC<AgentCardProps> = ({
   lastActive,
   onPress,
   onStatusPress,
-  style,
-}) => {
-
-  const getStatusColor = (): string => {
+  style
+}: AgentCardProps) {
+  
+  const getStatusColor = () => {
     switch (status) {
-      case 'active':
-        return '#10B981';
-      case 'inactive':
-        return '#6B7280';
-      case 'error':
-        return '#EF4444';
-      case 'loading':
-        return '#F59E0B';
-      default:
-        return '#6B7280';
+      case 'active': return '#10B981';
+      case 'inactive': return '#6B7280';
+      case 'error': return '#EF4444';
+      case 'loading': return '#F59E0B';
+      default: return '#6B7280';
     }
   };
 
-  const getStatusText = (): string => {
+  const getStatusText = () => {
     switch (status) {
-      case 'active':
-        return 'Active';
-      case 'inactive':
-        return 'Inactive';
-      case 'error':
-        return 'Error';
-      case 'loading':
-        return 'Loading';
-      default:
-        return 'Unknown';
+      case 'active': return 'Active';
+      case 'inactive': return 'Inactive';
+      case 'error': return 'Error';
+      case 'loading': return 'Loading';
+      default: return 'Unknown';
     }
-  };
-
-  const formatLastActive = (date?: string): string => {
-    if (!date) return 'Never';
-    
-    const now = new Date();
-    const lastActive = new Date(date);
-    const diffMs = now.getTime() - lastActive.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    
-    const diffHours = Math.floor(diffMins / 60);
-    if (diffHours < 24) return `${diffHours}h ago`;
-    
-    const diffDays = Math.floor(diffHours / 24);
-    return `${diffDays}d ago`;
-  };
-
-  const getBackgroundColor = (): string => {
-    return status === 'active' ? '#1E40AF' : '#374151';
   };
 
   return (
     <TouchableOpacity
-      style={[styles.container, style]}
+      style={styles.container}
       onPress={onPress}
-      activeOpacity={0.7}
+      activeOpacity={0.8}
     >
-      <View style={[styles.gradient, { backgroundColor: getBackgroundColor() }]}>
+      <GlassCard variant="card" style={[styles.card, style]}>
         <View style={styles.header}>
           <View style={styles.titleContainer}>
-            <Text style={styles.name} numberOfLines={1}>
-              {name}
-            </Text>
-            {provider && (
-              <Text style={styles.provider} numberOfLines={1}>
-                {provider}
-              </Text>
-            )}
+            <Text style={styles.name}>{name}</Text>
+            <Text style={styles.provider}>{provider}</Text>
           </View>
           
           <TouchableOpacity
-            style={[styles.statusContainer, { backgroundColor: getStatusColor() }]}
+            style={[styles.statusBadge, { backgroundColor: getStatusColor() }]}
             onPress={onStatusPress}
-            disabled={status === 'loading'}
           >
-            {status === 'loading' ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <Text style={styles.statusText}>{getStatusText()}</Text>
-            )}
+            <Text style={styles.statusText}>{getStatusText()}</Text>
           </TouchableOpacity>
         </View>
-
-        <Text style={styles.description} numberOfLines={2}>
-          {description}
-        </Text>
-
-        <View style={styles.footer}>
-          <Text style={styles.lastActive}>
-            Last active: {formatLastActive(lastActive)}
-          </Text>
-          <Text style={styles.agentId}>ID: {id.slice(0, 8)}...</Text>
-        </View>
-      </View>
+        
+        <Text style={styles.description}>{description}</Text>
+        
+        {lastActive && (
+          <Text style={styles.lastActive}>Last active: {lastActive}</Text>
+        )}
+      </GlassCard>
     </TouchableOpacity>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: 16,
-    marginVertical: 8,
-    marginHorizontal: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    marginBottom: getResponsiveSpacing('md'),
   },
-  gradient: {
-    padding: 16,
-    borderRadius: 16,
+  
+  card: {
+    padding: getResponsiveSpacing('md'),
   },
+  
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    marginBottom: getResponsiveSpacing('sm'),
   },
+  
   titleContainer: {
     flex: 1,
-    marginRight: 12,
   },
+  
   name: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: 4,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 2,
   },
+  
   provider: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.7)',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    color: '#6B7280',
   },
-  statusContainer: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
+  
+  statusBadge: {
+    paddingHorizontal: getResponsiveSpacing('sm'),
+    paddingVertical: getResponsiveSpacing('xs'),
+    borderRadius: 12,
     minWidth: 60,
     alignItems: 'center',
   },
+  
   statusText: {
-    color: '#FFFFFF',
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '600',
+    color: '#FFFFFF',
   },
+  
   description: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.9)',
+    color: '#6B7280',
     lineHeight: 20,
-    marginBottom: 12,
+    marginBottom: getResponsiveSpacing('sm'),
   },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
+  
   lastActive: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.6)',
-  },
-  agentId: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.6)',
-    fontFamily: 'monospace',
+    color: '#9CA3AF',
   },
 });
-
-export default AgentCard;

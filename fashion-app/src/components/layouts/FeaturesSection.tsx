@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Sparkles, Smartphone, Shield, Zap } from 'lucide-react-native';
-import { Heading } from '../elements/Heading';
-import { FeatureCard } from '../features/FeatureCard';
+import { Heading } from '../base/Heading';
+import { FeatureCard } from '../composites/FeatureCard';
 
 const features = [
   {
